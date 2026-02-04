@@ -2,5 +2,6 @@
 
 
 
-Näkyykö tämä branc omanaan vai ja/tai mainissa? -Tomi
+Näkyykö tämä branch omanaan vai ja/tai mainissa? -Tomi
+
 
