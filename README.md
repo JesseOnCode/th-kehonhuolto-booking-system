@@ -1,7 +1,11 @@
 
+Vaatimuksia:
+
+Varausaikoina valittavissa 60min tai 90min
+Asiakkaan tietoina; Etunimi, sukunimi, puhelinnumero, 
 
 
 
-Näkyykö tämä branch omanaan vai ja/tai mainissa? -Tomi
+
 
 
