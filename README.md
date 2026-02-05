@@ -39,6 +39,16 @@ https://vello.fi/prlihashuolto
 
 https://vello.fi/prlihashuolto/ajanvaraus?office=58e3547f-3ff9-4b9f-a747-9c6278c47221&service=f7bd88db-8942-4a2e-8846-26f42b81dbd4
 
+
+"Voit rakentaa oman hienon käyttöliittymän, mutta hoitaa itse varauslogiikan käyttämällä valmista "Headless"-ajanvarausrajapintaa, kuten:
+
+Cal.com: Täysin avoimen lähdekoodin ajanvarausalusta, jota voit muokata miten haluat.
+
+Day.js: Kirjasto, jolla käsittelet aikavyöhykkeitä ja kellonaikoja helposti."
+
+
+
 5.2.2026 11.46
+
 
 
