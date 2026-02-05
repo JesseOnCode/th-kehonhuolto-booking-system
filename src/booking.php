@@ -4,16 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Premium Hieronta - Varaus</title>
+    
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <form action="confirm_booking.php" method="POST" id="bookingForm">
+    
     <input type="hidden" name="selected_date" id="selectedDateInput">
     <input type="hidden" name="selected_time" id="selectedTimeInput">
 
     <div class="booking-wrapper">
+        
         <div class="booking-sidebar">
             <button type="button" class="back-btn" onclick="history.back()">← Palaa takaisin</button>
             
@@ -44,6 +47,7 @@
             </header>
 
             <div class="selection-grid">
+                
                 <div class="calendar-card">
                     <div class="calendar-header">
                         <span id="monthDisplay">Helmikuu 2026</span>
@@ -59,16 +63,17 @@
                                 <th>MA</th><th>TI</th><th>KE</th><th>TO</th><th>PE</th><th>LA</th><th>SU</th>
                             </tr>
                         </thead>
-                        <tbody id="calendarBody">
-                            </tbody>
+                        <tbody id="calendarBody"></tbody>
                     </table>
                 </div>
 
                 <div class="time-section">
                     <h3 id="displayDate">Valitse päivä kalenterista</h3>
+                    
                     <div class="time-slots" id="timeSlotContainer">
                         <p class="info-text">Valitse ensin päivä nähdäksesi vapaat ajat.</p>
                     </div>
+                    
                     <button type="submit" class="confirm-btn" id="submitBtn" disabled>Vahvista valinta</button>
                 </div>
             </div>
@@ -77,47 +82,64 @@
 </form>
 
 <script>
-    let currentViewDate = new Date(2026, 1, 1); // Aloitetaan helmikuusta 2026
+    /**
+     * JAVASCRIPT-LOGIIKKA
+     * Hoitaa kalenterin generoinnin, kuukauden vaihdon ja valintojen tallennuksen.
+     */
+
+    // Asetetaan alkuarvoksi helmikuu 2026 projektisuunnitelman mukaisesti
+    let currentViewDate = new Date(2026, 1, 1); 
+    
+    // Poimitaan tarvittavat HTML-elementit muuttujiin (DOM-manipulaatio)
     const dateInput = document.getElementById('selectedDateInput');
     const timeInput = document.getElementById('selectedTimeInput');
     const displayDate = document.getElementById('displayDate');
     const submitBtn = document.getElementById('submitBtn');
 
+    /**
+     * RENDER CALENDAR: Generoi kalenterinäkymän (taulukon)
+     */
     function renderCalendar() {
         const year = currentViewDate.getFullYear();
         const month = currentViewDate.getMonth();
         const monthNames = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", 
                             "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
         
+        // Päivitetään kuukausi/vuosi -teksti
         document.getElementById('monthDisplay').innerText = `${monthNames[month]} ${year}`;
         
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay(); // Kuukauden ensimmäinen päivä (0-6)
+        const daysInMonth = new Date(year, month + 1, 0).getDate(); // Päivien määrä kuukaudessa
         const calendarBody = document.getElementById('calendarBody');
-        calendarBody.innerHTML = '';
+        calendarBody.innerHTML = ''; // Tyhjennetään kalenteri ennen uudelleenpiirtoa
 
         let date = 1;
-        let startingDay = firstDay === 0 ? 6 : firstDay - 1; // Muunnos: ma=0, su=6
+        // Lasketaan alkutyhjä tila (Suomessa viikko alkaa maanantaista -> muunnos)
+        let startingDay = firstDay === 0 ? 6 : firstDay - 1; 
 
-        for (let i = 0; i < 6; i++) { // Max 6 viikkoa
+        for (let i = 0; i < 6; i++) { // Luodaan max 6 riviä (viikkoa)
             let row = document.createElement('tr');
 
             for (let j = 0; j < 7; j++) {
                 let cell = document.createElement('td');
                 
                 if (i === 0 && j < startingDay) {
+                    // Jos päivä on edellisen kuukauden puolella, se on tyhjä
                     cell.innerText = "";
                     cell.classList.add('disabled');
                 } else if (date > daysInMonth) {
+                    // Jos kuukausi loppuu kesken viikon
                     break;
                 } else {
                     cell.innerText = date;
+                    // Muotoillaan ISO-standardin päivämäärä (YYYY-MM-DD) piilokenttää varten
                     const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
                     cell.setAttribute('data-date', fullDate);
                     
-                    // Valitun päivän korostus jos se on jo valittu
+                    // Jos käyttäjä on jo valinnut tämän päivän ja vaihtaa kuukautta edestakaisin
                     if (dateInput.value === fullDate) cell.classList.add('selected');
 
+                    // Lisätään kuuntelija klikkaukselle: kun päivää klikataan, ajetaan selectDate-funktio
                     cell.addEventListener('click', () => selectDate(cell, fullDate));
                     date++;
                 }
@@ -128,24 +150,36 @@
         }
     }
 
+    /**
+     * SELECT DATE: Suoritetaan, kun käyttäjä klikkaa päivää
+     */
     function selectDate(element, dateStr) {
+        // Poistetaan aiempi valinta-visuaalisuus
         document.querySelector('.calendar-table td.selected')?.classList.remove('selected');
+        // Lisätään klikatulle solulle selected-luokka (muuttuu kultaiseksi)
         element.classList.add('selected');
+        
+        // Päivitetään Tomin tarvitsema piilokenttä
         dateInput.value = dateStr;
 
-        // Suomenkielinen päivämäärämuotoilu otsikkoon
+        // Muutetaan otsikko suomenkieliseksi (esim. "Torstai 12. Helmikuuta 2026")
         const dateObj = new Date(dateStr);
         const options = { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' };
         let formatted = dateObj.toLocaleDateString('fi-FI', options);
         displayDate.innerText = formatted.charAt(0).toUpperCase() + formatted.slice(1);
 
-        // Demo-aikojen lataus (Tässä kohtaa Tomi tekee myöhemmin AJAX-pyynnön)
+        // Kutsutaan funktiota, joka lataa vapaat ajat (Myöhemmin Tomi hoitaa tämän AJAXilla)
         loadDemoTimes();
     }
 
+    /**
+     * LOAD TIMES: Luo painikkeet vapaista ajoista
+     */
     function loadDemoTimes() {
         const container = document.getElementById('timeSlotContainer');
-        container.innerHTML = ''; // Tyhjennetään vanhat
+        container.innerHTML = ''; // Tyhjennetään vanhat kellonajat
+        
+        // Demo-lista: Tässä vaiheessa nämä ovat kiinteitä, viikolla 2 ne haetaan SQL-tietokannasta
         const demoTimes = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
 
         demoTimes.forEach(time => {
@@ -153,21 +187,33 @@
             btn.type = "button";
             btn.className = "time-slot";
             btn.innerText = time;
+            
+            // Kun kellonaikaa klikataan:
             btn.onclick = () => {
+                // Poistetaan korostus muilta napeilta
                 document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
+                // Korostetaan valittu nappi
                 btn.classList.add('active');
+                // Päivitetään piilokenttä Tomille
                 timeInput.value = time;
+                // Aktoidaan vahvistusnappi, koska nyt sekä päivä että aika on valittu
                 submitBtn.disabled = false;
             };
             container.appendChild(btn);
         });
     }
 
-    // Nuolien toiminnallisuus
-    document.getElementById('prevMonth').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); renderCalendar(); };
-    document.getElementById('nextMonth').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); renderCalendar(); };
+    // NUOLINÄPPÄIMET: Kuukauden vaihtaminen
+    document.getElementById('prevMonth').onclick = () => { 
+        currentViewDate.setMonth(currentViewDate.getMonth() - 1); 
+        renderCalendar(); 
+    };
+    document.getElementById('nextMonth').onclick = () => { 
+        currentViewDate.setMonth(currentViewDate.getMonth() + 1); 
+        renderCalendar(); 
+    };
 
-    // Alustus
+    // ALUSTUS: Piirretään kalenteri heti kun sivu latautuu
     renderCalendar();
 </script>
 
