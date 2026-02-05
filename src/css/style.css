@@ -1,0 +1,314 @@
+/* booking-style.css - Premium Artisan Edition */
+:root {
+    --dark-bg: #0d0d0d;
+    --sidebar-bg: #141414;
+    --card-bg: #1a1a1a;
+    --gold: #c5a059; /* Sivistyneempi satiinikulta */
+    --gold-bright: #e6c27a;
+    --text-light: #f5f5f5;
+    --muted: #777;
+    --border: #262626;
+    --error: #af4444;
+}
+
+body {
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+/* Otsikkotyylit */
+h1, h2, h3, .total-price h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* Päärakenne */
+.booking-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Vasen sivupalkki */
+.booking-sidebar {
+    width: 350px;
+    background-color: var(--sidebar-bg);
+    padding: 50px 40px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.back-btn {
+    background: transparent;
+    border: none;
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 50px;
+    transition: 0.3s;
+}
+
+.back-btn:hover {
+    color: var(--gold-bright);
+    transform: translateX(-5px);
+}
+
+.profile-logo {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Varmistaa, ettei kuva tule yli reunojen */
+    border: 2px solid var(--gold); /* Kultainen reunus logon ympärille */
+    border-radius: 50%; /* Tekee logosta pyöreän */
+    background-color: black; /* Varmistaa mustan taustan, jos logo on läpinäkyvä */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.profile-logo img {
+    width: 100%;    /* Täyttää leveyden */
+    height: 100%;   /* Täyttää korkeuden */
+    object-fit: cover; /* Pitää kuvan mittasuhteet oikeina ja täyttää ympyrän */
+}
+
+.provider-info {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.provider-info h3 {
+    margin: 10px 0 5px;
+    font-size: 24px;
+}
+
+.specialist-title {
+    color: var(--gold);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 3px;
+    margin: 0;
+}
+
+.service-details {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 30px;
+}
+
+.service-row strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 5px;
+}
+
+.service-row span {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.total-price {
+    margin-top: 40px;
+    background: rgba(197, 160, 89, 0.03);
+    padding: 20px;
+    border: 1px solid rgba(197, 160, 89, 0.1);
+    border-radius: 4px;
+}
+
+.total-price small {
+    display: block;
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+}
+
+.total-price h2 {
+    margin: 0;
+    font-size: 36px;
+    color: var(--gold);
+}
+
+/* Oikea puoli */
+.booking-main {
+    flex-grow: 1;
+    padding: 60px 80px;
+    max-width: 1200px;
+}
+
+.main-header h1 {
+    font-size: 42px;
+    margin: 0 0 10px;
+}
+
+.main-header p {
+    color: var(--muted);
+    font-size: 16px;
+    margin-bottom: 50px;
+}
+
+.selection-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 70px;
+}
+
+/* Kalenteri */
+.calendar-card {
+    background: var(--card-bg);
+    padding: 35px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.calendar-header span {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+}
+
+.nav-arrows button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--gold);
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.nav-arrows button:hover {
+    border-color: var(--gold);
+    background: rgba(197, 160, 89, 0.05);
+}
+
+.calendar-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.calendar-table th {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding-bottom: 20px;
+}
+
+.calendar-table td {
+    text-align: center;
+    padding: 12px 0;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+    border: 1px solid transparent;
+}
+
+.calendar-table td:empty {
+    cursor: default;
+}
+
+.calendar-table td:not(:empty):hover {
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.calendar-table td.selected {
+    background-color: var(--gold);
+    color: var(--dark-bg) !important;
+    font-weight: 700;
+    border-radius: 4px;
+}
+
+/* Kellonajat */
+.time-section h3 {
+    margin-bottom: 25px;
+    font-size: 20px;
+    border-left: 3px solid var(--gold);
+    padding-left: 15px;
+}
+
+.time-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.time-slot {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-light);
+    padding: 16px;
+    border-radius: 4px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.time-slot:hover {
+    border-color: var(--gold);
+}
+
+.time-slot.active {
+    background-color: var(--gold);
+    color: var(--dark-bg);
+    border-color: var(--gold);
+    font-weight: bold;
+}
+
+.confirm-btn {
+    width: 100%;
+    margin-top: 35px;
+    padding: 20px;
+    background-color: var(--gold);
+    color: var(--dark-bg);
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+
+.confirm-btn:disabled {
+    background-color: #222;
+    color: #444;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.confirm-btn:not(:disabled):hover {
+    background-color: var(--gold-bright);
+    box-shadow: 0 5px 15px rgba(197, 160, 89, 0.2);
+}
+
+/* Responsiivisuus */
+@media (max-width: 1100px) {
+    .selection-grid { grid-template-columns: 1fr; gap: 40px; }
+    .booking-sidebar { width: 300px; }
+}
+
+@media (max-width: 800px) {
+    .booking-wrapper { flex-direction: column; }
+    .booking-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    .booking-main { padding: 40px 20px; }
+}
