@@ -1,12 +1,12 @@
 <?php
 /**
  * ADMIN_DASHBOARD.PHP
- * Yrittäjän hallintapaneeli: Varausten seuranta ja vapaiden aikojen hallinta.
+ * Yrittäjän hallintapaneeli: Työaikojen generointi ja varausten hallinta.
  */
 session_start();
 require_once 'db_config.php';
 
-// 1. TURVATARKISTUS
+// 1. TURVATARKISTUS: Vain kirjautuneille
 if (!isset($_SESSION['admin_logged_in'])) { 
     header("Location: admin_login.php"); 
     exit; 
@@ -14,31 +14,26 @@ if (!isset($_SESSION['admin_logged_in'])) {
 
 // 2. DATAN HAKU
 try {
-    // Haetaan tehdyt varaukset ja hoidon nimi
+    // Haetaan varsinaiset varaukset (Asiakkaat)
     $stmt = $pdo->query("SELECT a.*, t.name as treatment_name 
                          FROM appointments a 
                          LEFT JOIN treatments t ON a.treatment_id = t.id 
                          ORDER BY a.appointment_date ASC, a.appointment_time ASC");
     $appointments = $stmt->fetchAll();
 
-    // Haetaan yrittäjän asettamat vapaat ajat (ne, joita ei ole vielä varattu) poistamista varten
-    $stmt_free = $pdo->query("SELECT v.*, t.name as treatment_name 
-                              FROM available_times v
-                              LEFT JOIN treatments t ON v.treatment_id = t.id
+    // Haetaan asetetut vapaat ajat, joissa EI OLE varausta (hallintaa varten)
+    $stmt_free = $pdo->query("SELECT v.* FROM available_times v
                               WHERE NOT EXISTS (
                                   SELECT 1 FROM appointments a 
                                   WHERE a.appointment_date = v.available_date 
                                   AND a.appointment_time = v.available_time
+                                  AND a.status != 'cancelled'
                               )
                               ORDER BY v.available_date ASC, v.available_time ASC");
     $free_times = $stmt_free->fetchAll();
 
-    // Haetaan hoidot lomakkeita varten
-    $stmt_treatments = $pdo->query("SELECT id, name, duration FROM treatments");
-    $treatments = $stmt_treatments->fetchAll();
-
 } catch (PDOException $e) {
-    die("Virhe haettaessa tietoja: " . $e->getMessage());
+    die("Tietokantavirhe: " . $e->getMessage());
 }
 ?>
 
@@ -55,10 +50,10 @@ try {
 <div class="booking-wrapper">
     <div class="booking-sidebar">
         <div class="profile-logo"><img src="logo.jpg" alt="Logo"></div>
-        <h3 style="text-align: center;">Hallintapaneeli</h3>
+        <h3 style="text-align: center;">Hallinta</h3>
         <nav style="margin-top: 20px;">
-            <a href="#tyoajat" style="color: var(--gold); text-decoration: none; display: block; padding: 10px 0;">⏰ Työaikojen hallinta</a>
-            <a href="#vapaat_lista" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">🗓️ Asetetut vapaat ajat</a>
+            <a href="#tyoajat" style="color: var(--gold); text-decoration: none; display: block; padding: 10px 0;">⏰ Lisää työaikoja</a>
+            <a href="#vapaat_lista" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">🗓️ Vapaat slotit</a>
             <a href="#varaukset" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">📅 Varauskirja</a>
             <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
             <a href="logout.php" class="back-btn" style="text-decoration: none; font-size: 14px; display: block;">KIRJAUDU ULOS</a>
@@ -70,12 +65,12 @@ try {
         <section id="tyoajat" style="margin-bottom: 50px;">
             <header class="main-header">
                 <h1>Työaikojen hallinta</h1>
-                <p>Määritä milloin olet tavoitettavissa. Järjestelmä lisää automaattisesti 30min tauon varausten väliin.</p>
+                <p>Merkitse ajat, jolloin otat vastaan varauksia. Asiakas valitsee hoidon keston varatessaan.</p>
             </header>
 
             <div class="selection-grid">
                 <div class="calendar-card" style="padding: 25px; border: 1px solid var(--border);">
-                    <h3 style="color: var(--gold); margin-top: 0;">Lisää työvuoro (Generoi ajat)</h3>
+                    <h3 style="color: var(--gold); margin-top: 0;">Generoi työvuoro</h3>
                     <form action="add_time_range.php" method="POST">
                         <div class="form-group">
                             <label>Päivämäärä</label>
@@ -91,17 +86,8 @@ try {
                                 <input type="time" name="end_time" required>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Palvelu</label>
-                            <select name="treatment_id" required>
-                                <?php foreach ($treatments as $t): ?>
-                                    <option value="<?php echo $t['id']; ?>">
-                                        <?php echo htmlspecialchars($t['name']); ?> (<?php echo $t['duration']; ?> min)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="submit" class="confirm-btn">GENEROI AJAT</button>
+                        <input type="hidden" name="treatment_id" value="1">
+                        <button type="submit" class="confirm-btn">LUO AJAT (30min välein)</button>
                     </form>
                 </div>
 
@@ -116,35 +102,26 @@ try {
                             <label>Kellonaika</label>
                             <input type="time" name="time" required>
                         </div>
-                        <div class="form-group">
-                            <label>Palvelu</label>
-                            <select name="treatment_id" required>
-                                <?php foreach ($treatments as $t): ?>
-                                    <option value="<?php echo $t['id']; ?>">
-                                        <?php echo htmlspecialchars($t['name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="submit" class="confirm-btn" style="background: transparent; border: 1px solid var(--gold); color: var(--gold);">LISÄÄ YKSITTÄINEN</button>
+                        <input type="hidden" name="treatment_id" value="1">
+                        <button type="submit" class="confirm-btn" style="background: transparent; border: 1px solid var(--gold); color: var(--gold);">LISÄÄ SLOTTI</button>
                     </form>
                 </div>
             </div>
         </section>
 
         <section id="vapaat_lista" style="margin-bottom: 50px;">
-            <h3>Asetetut vapaat ajat</h3>
+            <h3>Kalenterissa olevat vapaat slotit</h3>
             <div class="calendar-card" style="padding: 20px; border: 1px solid var(--border);">
                 <?php if (empty($free_times)): ?>
                     <p style="color: var(--muted);">Ei asetettuja vapaita aikoja.</p>
                 <?php else: ?>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;">
                         <?php foreach ($free_times as $ft): ?>
                             <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; border: 1px solid var(--border); position: relative;">
                                 <small style="color: var(--gold);"><?php echo date("d.m.Y", strtotime($ft['available_date'])); ?></small><br>
                                 <strong>klo <?php echo date("H:i", strtotime($ft['available_time'])); ?></strong>
                                 <a href="delete_time.php?id=<?php echo $ft['id']; ?>" 
-                                   onclick="return confirm('Poistetaanko tämä aika kalenterista?')"
+                                   onclick="return confirm('Poistetaanko tämä aika varattavista?')"
                                    style="position: absolute; right: 10px; top: 10px; color: var(--error); text-decoration: none; font-weight: bold;">×</a>
                             </div>
                         <?php endforeach; ?>
@@ -162,16 +139,16 @@ try {
                 <table class="calendar-table" style="text-align: left; width: 100%; border-collapse: collapse;">
                     <thead style="background: rgba(197, 160, 89, 0.1);">
                         <tr>
-                            <th style="padding: 20px; font-size: 12px; color: var(--gold);">AJANKOHTA</th>
+                            <th style="padding: 20px; font-size: 12px; color: var(--gold);">AIKA</th>
                             <th style="font-size: 12px; color: var(--gold);">ASIAKAS</th>
                             <th style="font-size: 12px; color: var(--gold);">PALVELU</th>
                             <th style="font-size: 12px; color: var(--gold);">YHTEYSTIEDOT</th>
-                            <th style="font-size: 12px; color: var(--gold);">LISÄTIEDOT</th>
+                            <th style="font-size: 12px; color: var(--gold);">HUOMIOT</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($appointments)): ?>
-                            <tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--muted);">Ei varauksia.</td></tr>
+                            <tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--muted);">Ei tehtyjä varauksia.</td></tr>
                         <?php else: ?>
                             <?php foreach ($appointments as $app): ?>
                             <tr style="border-bottom: 1px solid var(--border);">

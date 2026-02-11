@@ -1,51 +1,59 @@
 <?php
 /**
  * GET_AVAILABLE_TIMES.PHP
- * Hakee tietyn päivän vapaat ajat ja palauttaa ne JSON-muodossa JavaScriptille.
+ * Hakee vapaat ajat ja suodattaa pois varatut aikavälit + 30 min tauon.
  */
 require_once 'db_config.php';
 
-// Otetaan päivämäärä vastaan URL-parametrista (esim. ?date=2026-02-12)
 $date = $_GET['date'] ?? '';
 
 if (empty($date)) {
+    header('Content-Type: application/json');
     echo json_encode([]);
     exit;
 }
 
 try {
     /**
-     * SQL-LOGIIKKA:
-     * 1. Haetaan kaikki ajat taulusta 'available_times' valitulle päivälle.
-     * 2. Poistetaan tuloksista ne ajat (NOT IN), jotka löytyvät jo 'appointments'-taulusta
-     * ja joiden status ei ole peruttu ('cancelled').
+     * SQL-LOGIIKKA (UUSI):
+     * 1. Haetaan kaikki yrittäjän asettamat vapaat slotit (v).
+     * 2. Käytetään NOT EXISTS -lauseketta tarkistamaan, ettei mikään varaus (a) 
+     * osu päällekkäin kyseisen slotin kanssa.
+     * 3. Varaus katsotaan päällekkäiseksi, jos slotin aika on välillä:
+     * Varauksen alkuaika --- (Varauksen kesto + 30 min tauko)
      */
-    $sql = "SELECT available_time FROM available_times 
-            WHERE available_date = :date 
-            AND available_time NOT IN (
-                SELECT appointment_time FROM appointments 
-                WHERE appointment_date = :date AND status != 'cancelled'
+    $sql = "SELECT v.available_time 
+            FROM available_times v
+            WHERE v.available_date = :date
+            AND NOT EXISTS (
+                SELECT 1 
+                FROM appointments a
+                JOIN treatments t ON a.treatment_id = t.id
+                WHERE a.appointment_date = v.available_date
+                AND a.status != 'cancelled'
+                -- Slotti on varattu, jos se on suurempi/yhtäsuuri kuin varauksen alkuaika...
+                AND v.available_time >= a.appointment_time
+                -- ...mutta pienempi kuin (alkuaika + kesto + 30 min tauko)
+                AND v.available_time < ADDTIME(a.appointment_time, SEC_TO_TIME((t.duration + 30) * 60))
             )
-            ORDER BY available_time ASC";
+            ORDER BY v.available_time ASC";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':date' => $date]);
     
-    // FETCH_COLUMN palauttaa pelkät kellonajat (esim. ["10:00:00", "12:00:00"])
+    // FETCH_COLUMN palauttaa vain kellonajat taulukkona
     $times = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    // Muotoillaan kellonajat siistimmäksi (esim. 10:00:00 -> 10:00)
+    // Siistitään kellonajat (10:00:00 -> 10:00)
     $formatted_times = array_map(function($time) {
         return substr($time, 0, 5);
     }, $times);
 
-    // Asetetaan vastaus JSON-muotoon
     header('Content-Type: application/json');
     echo json_encode($formatted_times);
 
 } catch (PDOException $e) {
-    // Virhetilanteessa palautetaan tyhjä lista, jotta JS ei kaadu
+    // Palautetaan tyhjä lista virhetilanteessa, jotta UI ei jumiudu
     header('Content-Type: application/json');
     echo json_encode([]);
 }
-?>

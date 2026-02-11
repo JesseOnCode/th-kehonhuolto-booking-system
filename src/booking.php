@@ -14,6 +14,7 @@
     
     <input type="hidden" name="selected_date" id="selectedDateInput">
     <input type="hidden" name="selected_time" id="selectedTimeInput">
+    <input type="hidden" name="treatment_id" id="treatmentIdInput" value="1">
 
     <div class="booking-wrapper">
         
@@ -30,25 +31,36 @@
 
             <div class="service-details">
                 <div class="service-row">
-                    <strong>Klassinen Hieronta</strong>
-                    <span>45 min | 45,00 €</span>
+                    <strong id="summaryService">Hieronta 60min</strong>
+                    <span id="summaryDuration">Kesto: 60 min</span>
                 </div>
                 <div class="total-price">
                     <small>YHTEENSÄ</small>
-                    <h2>45,00 €</h2>
+                    <h2 id="summaryPrice">55,00 €</h2>
                 </div>
             </div>
         </div>
 
         <div class="booking-main">
             <header class="main-header">
-                <h1>Valitse ajankohta</h1>
-                <p>Valitse kalenterista päivä nähdäksesi vapaat aikani. Järjestelmä huomioi automaattisesti tauot varausten välillä.</p>
+                <h1>Varauksen tiedot</h1>
+                <p>Valitse ensin palvelu ja sen jälkeen kalenterista sopiva ajankohta.</p>
             </header>
+
+            <div class="calendar-card" style="margin-bottom: 30px; padding: 20px;">
+                <h3 style="margin-top: 0;">1. Valitse palvelu</h3>
+                <div class="form-group">
+                    <select id="serviceSelect" class="confirm-btn" style="background: var(--card-bg); color: white; border: 1px solid var(--border); text-transform: none; font-weight: 400; letter-spacing: 0;">
+                        <option value="1" data-price="55.00" data-duration="60" data-name="Hieronta 60min">Klassinen Hieronta 60min - 55,00 €</option>
+                        <option value="2" data-price="75.00" data-duration="90" data-name="Hieronta 90min">Rentouttava Hieronta 90min - 75,00 €</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="selection-grid">
                 
                 <div class="calendar-card">
+                    <h3 style="margin-top: 0;">2. Valitse päivä</h3>
                     <div class="calendar-header">
                         <span id="monthDisplay"></span>
                         <div class="nav-arrows">
@@ -63,8 +75,7 @@
                                 <th>MA</th><th>TI</th><th>KE</th><th>TO</th><th>PE</th><th>LA</th><th>SU</th>
                             </tr>
                         </thead>
-                        <tbody id="calendarBody">
-                            </tbody>
+                        <tbody id="calendarBody"></tbody>
                     </table>
                 </div>
 
@@ -85,19 +96,35 @@
 <script>
     /**
      * JAVASCRIPT-LOGIIKKA
-     * Dynaaminen kalenteri ja AJAX-haku tietokantaan.
      */
 
-    let currentViewDate = new Date(2026, 1, 1); // Aloitus helmikuusta 2026
+    let currentViewDate = new Date(2026, 1, 1); 
     
     const dateInput = document.getElementById('selectedDateInput');
     const timeInput = document.getElementById('selectedTimeInput');
+    const treatmentInput = document.getElementById('treatmentIdInput');
     const displayDate = document.getElementById('displayDate');
     const submitBtn = document.getElementById('submitBtn');
+    const serviceSelect = document.getElementById('serviceSelect');
+
+    /**
+     * PALVELUN VAIHTO: Päivittää sivupalkin ja hinnan
+     */
+    serviceSelect.addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        document.getElementById('summaryService').innerText = selected.dataset.name;
+        document.getElementById('summaryDuration').innerText = "Kesto: " + selected.dataset.duration + " min";
+        document.getElementById('summaryPrice').innerText = selected.dataset.price.replace('.', ',') + " €";
+        treatmentInput.value = this.value;
+        
+        // Jos päivä oli jo valittu, haetaan ajat uudelleen (jos logiikka muuttuisi keston mukaan)
+        if (dateInput.value) {
+            loadAvailableTimes(dateInput.value);
+        }
+    });
 
     /**
      * RENDERÖI KALENTERI
-     * Rakentaa kuukausinäkymän ja asettaa päiville data-attribuutit.
      */
     function renderCalendar() {
         const year = currentViewDate.getFullYear();
@@ -113,7 +140,6 @@
         calendarBody.innerHTML = ''; 
 
         let date = 1;
-        // Suomessa viikko alkaa maanantaista (muunnos JS:n sunnuntai-aloituksesta)
         let startingDay = firstDay === 0 ? 6 : firstDay - 1; 
 
         for (let i = 0; i < 6; i++) {
@@ -144,7 +170,6 @@
 
     /**
      * VALITSE PÄIVÄ
-     * Päivittää otsikon ja kutsuu vapaiden aikojen hakua.
      */
     function selectDate(element, dateStr) {
         document.querySelectorAll('.calendar-table td.selected').forEach(el => el.classList.remove('selected'));
@@ -160,13 +185,11 @@
         timeInput.value = "";
         submitBtn.disabled = true;
 
-        // Kutsutaan hakua
         loadAvailableTimes(dateStr);
     }
 
     /**
-     * AJAX: NOUDA VAPAAT AJAT
-     * Tomi: Tämä funktio kutsuu get_available_times.php:tä.
+     * AJAX: NOUDA VAPAAT AJAT (Tomi: get_available_times.php hakee nämä DB:stä)
      */
     function loadAvailableTimes(dateStr) {
         const container = document.getElementById('timeSlotContainer');
@@ -178,7 +201,7 @@
                 container.innerHTML = ''; 
 
                 if (times.length === 0) {
-                    container.innerHTML = '<p class="info-text">Ei vapaita aikoja valitulle päivälle.</p>';
+                    container.innerHTML = '<p class="info-text">Ei vapaita aikoja valittuna päivänä.</p>';
                     return;
                 }
 
@@ -186,7 +209,7 @@
                     const btn = document.createElement('button');
                     btn.type = "button";
                     btn.className = "time-slot";
-                    // Näytetään aika muodossa HH:MM
+                    // Näytetään HH:MM
                     btn.innerText = time.substring(0, 5);
                     
                     btn.onclick = () => {
@@ -200,11 +223,11 @@
             })
             .catch(error => {
                 console.error('Virhe:', error);
-                container.innerHTML = '<p class="info-text">Yhteysvirhe. Yritä uudelleen.</p>';
+                container.innerHTML = '<p class="info-text">Yhteysvirhe tietokantaan.</p>';
             });
     }
 
-    // NAVIGOINTI NUOLILLA
+    // NUOLINAVIGOINTI
     document.getElementById('prevMonth').onclick = () => { 
         currentViewDate.setMonth(currentViewDate.getMonth() - 1); 
         renderCalendar(); 

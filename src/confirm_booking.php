@@ -123,6 +123,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     Hyväksyn varausehdot. Peruutus on tehtävä viimeistään 24h ennen hoidon alkua. 
                     Tämän jälkeen veloitamme 50% hoidon hinnasta.
                 </label>
+                                <input type="checkbox" id="terms" name="terms" required>
+                <label for="terms">
+                    Hyväksyn, että TH-kehonhuolto kerää ja käsittelee henkilötietojani ajanvarauksen tekemistä varten, sekä mahdollisia yhteydenottoja varten.
+                    Olen tietoinen siitä, että tietojani käsitellään tietosuojalain (GDPR) mukaisesti ja että minulla on oikeus tarkastaa, oikaista ja poistaa tietoni.
+                </label>
             </div>
 
             <button type="submit" class="confirm-btn">VAHVISTA VARAUS</button>

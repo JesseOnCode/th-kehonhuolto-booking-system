@@ -1,61 +1,66 @@
 <?php
 /**
  * ADD_TIME_RANGE.PHP
- * Generoi vapaat ajat huomioiden 30 minuutin tauon jokaisen hoidon välissä.
+ * Generoi vapaat aloitusaika-vaihtoehdot 30 minuutin välein yrittäjän valitsemalle välille.
  */
 session_start();
 require_once 'db_config.php';
 
-if (!isset($_SESSION['admin_logged_in'])) { exit; }
+// 1. TURVATARKISTUS
+if (!isset($_SESSION['admin_logged_in'])) { 
+    header("Location: admin_login.php");
+    exit; 
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $date = $_POST['date'];
-    $start = $_POST['start_time'];
-    $end = $_POST['end_time'];
-    $t_id = $_POST['treatment_id'];
+    // Otetaan vastaan päivä, alku- ja loppuaika
+    $date = $_POST['date'] ?? '';
+    $start = $_POST['start_time'] ?? '';
+    $end = $_POST['end_time'] ?? '';
     
-    // Määritetään tauon pituus (30 minuuttia)
-    $buffer_minutes = 30;
+    // Käytetään 30 minuuttia "atomisena" yksikkönä. 
+    // Yrittäjä vain ilmoittaa olevansa töissä, ei sitä mitä hoitoa tekee.
+    $step_minutes = 30;
+
+    if (empty($date) || empty($start) || empty($end)) {
+        header("Location: admin_dashboard.php?error=missing_values");
+        exit;
+    }
 
     try {
-        // Haetaan valitun hoidon kesto tietokannasta
-        $stmt_dur = $pdo->prepare("SELECT duration FROM treatments WHERE id = ?");
-        $stmt_dur->execute([$t_id]);
-        $duration = $stmt_dur->fetchColumn();
-
-        if (!$duration) { $duration = 60; } // Oletus jos ei löydy
-
         $current = strtotime("$date $start");
         $finish  = strtotime("$date $end");
 
+        // Aloitetaan transaktio (varmistaa, että joko kaikki ajat tallentuvat tai ei mitään)
         $pdo->beginTransaction();
 
-        // INSERT IGNORE estää duplikaatit, jos aika on jo olemassa
+        // SQL: Käytetään INSERT IGNOREa, jotta ei tule virhettä, jos aika on jo lisätty
+        // Käytetään treatment_id = 1 oletuksena, koska kanta vaatii sen (ei vaikuta asiakkaan valintaan)
         $sql = "INSERT IGNORE INTO available_times (treatment_id, available_date, available_time) 
-                VALUES (:t_id, :date, :time)";
+                VALUES (1, :date, :time)";
         $stmt = $pdo->prepare($sql);
 
-        // Silmukka generoi aikoja niin kauan kuin HOITO + TAUKO mahtuu aikaväliin
-        while ($current + ($duration * 60) <= $finish) {
-            
+        // Generoidaan ajat silmukassa
+        while ($current < $finish) {
             $stmt->execute([
-                ':t_id' => $t_id,
                 ':date' => $date,
                 ':time' => date("H:i:s", $current)
             ]);
             
-            // LASKENTALOGIIKKA:
-            // Seuraava aloitusaika = Nykyinen aloitusaika + hoidon kesto + 30 min tauko
-            $step = ($duration + $buffer_minutes) * 60;
-            $current += $step;
+            // Siirrytään 30 minuuttia eteenpäin
+            $current += ($step_minutes * 60);
         }
 
         $pdo->commit();
-        header("Location: admin_dashboard.php?success=range_added_with_buffer");
+        header("Location: admin_dashboard.php?success=range_added");
         exit;
 
     } catch (PDOException $e) {
         $pdo->rollBack();
-        die("Virhe generoitaessa aikoja: " . $e->getMessage());
+        die("Virhe aikoja luodessa: " . $e->getMessage());
     }
+} else {
+    header("Location: admin_dashboard.php");
+    exit;
 }
+?>
