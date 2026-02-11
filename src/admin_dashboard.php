@@ -22,7 +22,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <title>Hallintapaneeli | Artisan Massage</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
