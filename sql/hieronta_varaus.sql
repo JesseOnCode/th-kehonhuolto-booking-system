@@ -1,12 +1,10 @@
 -- 1. LUODAAN TIETOKANTA
--- Varmistetaan utf8mb4-merkistö, jotta ääkköset ja erikoismerkit toimivat oikein.
 CREATE DATABASE IF NOT EXISTS `hieronta_varaus` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `hieronta_varaus`;
 
 -- --------------------------------------------------------
 
--- 2. TAULU: treatments (Hoidot/Palvelut)
--- Sisältää tarjottavat hoidot, niiden keston (minuutteina) ja hinnan.
+-- 2. TAULU: treatments (Palvelut)
 CREATE TABLE `treatments` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -23,42 +21,39 @@ INSERT INTO `treatments` (`id`, `name`, `description`, `duration`, `price`) VALU
 -- --------------------------------------------------------
 
 -- 3. TAULU: admins (Yrittäjät)
--- Hallintapaneelin kirjautumistiedot.
+-- Korjattu email -> username
 CREATE TABLE `admins` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `email` varchar(100) NOT NULL,
+  `username` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Oletussalasana on: password123 (hashattuna password_hash-funktiolla)
-INSERT INTO `admins` (`id`, `email`, `password`) VALUES
-(1, 'admin@demo.fi', '$2y$10$e0NnD6s1GdXKfJ9C3t1t7u8hQYgTj9G7VsmFhM6rP7yL5C1K8j4Pa');
+-- Oletustunnus: admin / Salasana: password123 
+-- (Hash: $2y$10$e0NnD6s1GdXKfJ9C3t1t7u8hQYgTj9G7VsmFhM6rP7yL5C1K8j4Pa)
+INSERT INTO `admins` (`id`, `username`, `password`) VALUES
+(1, 'admin', '$2y$10$Thjxl4H6d0/t9B.gWdrBCek3wTIYIwfW7jV8A0dyLVbbXittuNVLe');
 
 -- --------------------------------------------------------
 
--- 4. TAULU: available_times (Yrittäjän asettamat vapaat ajat)
--- Nämä ovat niitä "työvuoroja", jotka yrittäjä generoi hallintapaneelista.
+-- 4. TAULU: available_times (Vapaat slotit)
 CREATE TABLE `available_times` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `treatment_id` int(11) NOT NULL,
+  `treatment_id` int(11) NOT NULL DEFAULT 1,
   `available_date` date NOT NULL,
   `available_time` time NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  -- UNIQUE KEY varmistaa, ettei samaa kellonaikaa voi lisätä kahdesti samalle päivälle.
   UNIQUE KEY `unique_time_slot` (`available_date`, `available_time`),
   KEY `treatment_id` (`treatment_id`),
-  -- Jos hoito poistetaan, siihen liittyvät vapaat ajat poistuvat myös.
   CONSTRAINT `available_times_ibfk_1` FOREIGN KEY (`treatment_id`) REFERENCES `treatments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
--- 5. TAULU: appointments (Asiakkaiden tekemät varaukset)
--- Kun asiakas varaa ajan, tieto tallentuu tänne.
+-- 5. TAULU: appointments (Varaukset)
 CREATE TABLE `appointments` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `customer_first_name` varchar(50) NOT NULL,
@@ -73,7 +68,6 @@ CREATE TABLE `appointments` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  -- UNIQUE KEY estää päällekkäiset varaukset samaan aikaan.
   UNIQUE KEY `appointment_unique` (`appointment_date`,`appointment_time`),
   KEY `treatment_id` (`treatment_id`),
   CONSTRAINT `appointments_ibfk_1` FOREIGN KEY (`treatment_id`) REFERENCES `treatments` (`id`)
