@@ -86,10 +86,9 @@ Taulujen väliset relaatiot:
 
 | Viikko | Tehtävät |
 |------|---------|
-| Viikko 1 | Suunnittelu ja tietokantamalli |
-| Viikko 2 | Backend-kehitys |
-| Viikko 3 | Frontend-kehitys |
-| Viikko 4 | Testaus ja viimeistely |
+| Viikko 1 | Suunnittelu, tietokantamalli, backend-kehitys |
+| Viikko 2 | Backend ja Frontend kehitys, testaus ja korjaus, dokumentointi |
+
 
 ---
 
@@ -110,3 +109,4 @@ Riskejä pyritään minimoimaan huolellisella suunnittelulla, testaamisella ja s
 
 ## 10. Yhteenveto
 Projektin tavoitteena on kehittää käytännöllinen ja selkeä ajanvarausjärjestelmä yhden henkilön hierontayritykselle. Projektin aikana opitaan ohjelmistokehitystä, tietokantasuunnittelua sekä tiimityöskentelyä. Projekti dokumentoidaan ja hallinnoidaan GitHubin avulla.
+
