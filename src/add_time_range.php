@@ -1,4 +1,13 @@
 <?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header("Location: admin_login.php");
+    exit;
+}
+?>
+
+
+<?php
 /**
  * ADD_TIME_RANGE.PHP
  * Generoi vapaat aloitusaika-vaihtoehdot 30 minuutin välein yrittäjän valitsemalle välille.
