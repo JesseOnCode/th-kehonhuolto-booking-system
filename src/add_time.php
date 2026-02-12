@@ -1,59 +1,59 @@
 <?php
 /**
- * ADD_TIME.PHP
- * Tallentaa yrittäjän asettaman yksittäisen vapaan aloitusaika-slotin tietokantaan.
+ * ADD_TIME.PHP - Päivitetty: Lisää suoraan varauksen
  */
 session_start();
 require_once 'db_config.php';
 
-// 1. TURVATARKISTUS: Vain kirjautunut yrittäjä saa lisätä aikoja.
-// Pidetään kutsumattomat vieraat poissa hallintapaneelista.
-if (!isset($_SESSION['admin_logged_in'])) { 
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) { 
     header("Location: admin_login.php");
     exit; 
 }
 
-// 2. LOMAKKEEN KÄSITTELY
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        header("Location: admin_dashboard.php?error=invalid_token");
+        exit;
+    }
     
-    // Otetaan vastaan päivä ja kellonaika.
-    // Treatment_id on poistettu lomakkeelta, joten käytetään oletusta 1.
+    $customer_name = trim(strip_tags($_POST['customer_name'] ?? 'Admin-varaus'));
     $date = $_POST['date'] ?? '';
     $time = $_POST['time'] ?? '';
-    $default_t_id = 1; 
+    $treatment_id = 1; // Oletushoito
 
-    // Tarkistetaan, etteivät kentät ole tyhjiä (perusvalidointi).
     if (empty($date) || empty($time)) {
         header("Location: admin_dashboard.php?error=empty_fields");
         exit;
     }
 
     try {
-        // 3. SQL-TALLENNUS
-        // Käytetään INSERT IGNORE -komentoa. 
-        // Jos olet jo lisännyt tämän tarkan ajan aiemmin, koodi ei "pahoita mieltään" ja kaadu, 
-        // vaan jättää duplikaatin huomiotta.
-        $sql = "INSERT IGNORE INTO available_times (treatment_id, available_date, available_time) 
-                VALUES (:t_id, :date, :time)";
+        $pdo->beginTransaction();
+
+        // 1. Lisätään suoraan varauksiin
+        $sql = "INSERT INTO appointments (customer_first_name, customer_last_name, appointment_date, appointment_time, treatment_id, status, notes) 
+                VALUES (:fname, 'Ylläpitäjä', :date, :time, :t_id, 'booked', 'Lisätty manuaalisesti hallinnasta')";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':t_id' => $default_t_id, 
+            ':fname' => $customer_name, 
             ':date' => $date, 
-            ':time' => $time
+            ':time' => $time . ':00',
+            ':t_id' => $treatment_id
         ]);
-        
-        // Palataan takaisin dashboardille onnistumisviestin kera.
+
+        // 2. Poistetaan mahdollinen vapaa slotti samalta ajalta, ettei tule tuplia
+        $stmt_del = $pdo->prepare("DELETE FROM available_times WHERE available_date = ? AND available_time = ?");
+        $stmt_del->execute([$date, $time . ':00']);
+
+        $pdo->commit();
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         header("Location: admin_dashboard.php?success=time_added");
         exit;
         
     } catch (PDOException $e) {
-        // Jos jokin menee todella pahasti pieleen (esim. tietokantayhteys katkeaa).
-        die("Hups! Tietokantavirhe: " . $e->getMessage());
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Manual booking error: " . $e->getMessage());
+        header("Location: admin_dashboard.php?error=database_error");
+        exit;
     }
-} else {
-    // Jos joku yrittää avata tiedoston suoraan selaimessa ilman lomaketta.
-    header("Location: admin_dashboard.php");
-    exit;
 }
-?>

@@ -7,6 +7,7 @@
     
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';">
 </head>
 <body>
 
@@ -96,6 +97,7 @@
 <script>
     /**
      * JAVASCRIPT-LOGIIKKA
+     * KORJATTU: Lähettää treatment_id:n AJAX-kutsussa
      */
 
     let currentViewDate = new Date(2026, 1, 1); 
@@ -117,7 +119,7 @@
         document.getElementById('summaryPrice').innerText = selected.dataset.price.replace('.', ',') + " €";
         treatmentInput.value = this.value;
         
-        // Jos päivä oli jo valittu, haetaan ajat uudelleen (jos logiikka muuttuisi keston mukaan)
+        // TÄRKEÄ: Jos päivä oli jo valittu, haetaan ajat uudelleen uudelle kestolla
         if (dateInput.value) {
             loadAvailableTimes(dateInput.value);
         }
@@ -189,19 +191,24 @@
     }
 
     /**
-     * AJAX: NOUDA VAPAAT AJAT (Tomi: get_available_times.php hakee nämä DB:stä)
+     * AJAX: NOUDA VAPAAT AJAT
+     * KORJATTU: Lähetetään treatment_id parametrina
      */
     function loadAvailableTimes(dateStr) {
         const container = document.getElementById('timeSlotContainer');
         container.innerHTML = '<p class="info-text">Haetaan vapaita aikoja...</p>';
 
-        fetch('get_available_times.php?date=' + dateStr)
+        // TÄRKEÄ: Lisätään treatment_id URL-parametriin
+        const treatmentId = treatmentInput.value;
+        const url = 'get_available_times.php?date=' + encodeURIComponent(dateStr) + '&treatment_id=' + encodeURIComponent(treatmentId);
+
+        fetch(url)
             .then(response => response.json())
             .then(times => {
                 container.innerHTML = ''; 
 
                 if (times.length === 0) {
-                    container.innerHTML = '<p class="info-text">Ei vapaita aikoja valittuna päivänä.</p>';
+                    container.innerHTML = '<p class="info-text">Ei vapaita aikoja valittuna päivänä tälle hoidolle.</p>';
                     return;
                 }
 
@@ -209,15 +216,20 @@
                     const btn = document.createElement('button');
                     btn.type = "button";
                     btn.className = "time-slot";
-                    // Näytetään HH:MM
-                    btn.innerText = time.substring(0, 5);
+                    btn.innerText = time;
                     
-                    btn.onclick = () => {
-                        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
-                        btn.classList.add('active');
-                        timeInput.value = time;
-                        submitBtn.disabled = false;
-                    };
+                btn.onclick = () => {
+                    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // Jos time on "10:00", tästä tulee "10:00:00", mikä on oikein SQL TIME -kentälle
+                    let formattedTime = btn.innerText;
+                    if (formattedTime.length === 5) {
+                        formattedTime += ':00';
+                    }
+                    timeInput.value = formattedTime;
+                    submitBtn.disabled = false;
+                };
                     container.appendChild(btn);
                 });
             })

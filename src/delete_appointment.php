@@ -1,7 +1,7 @@
 <?php
 /**
- * DELETE_TIME.PHP
- * Poistaa vapaan ajan tietokannasta.
+ * DELETE_APPOINTMENT.PHP
+ * Poistaa varauksen tietokannasta.
  * 
  * TIETOTURVAPARANNUKSET:
  * - CSRF token validointi
@@ -34,29 +34,30 @@ if (!$id) {
 }
 
 try {
-    // 4. TARKISTETAAN ETTÄ AIKA KUULUU OIKEAAN TIETOKANTAAN
-    $check_stmt = $pdo->prepare("SELECT id FROM available_times WHERE id = ?");
+    // 4. TARKISTETAAN ETTÄ VARAUS KUULUU OIKEAAN TIETOKANTAAN
+    // (Estää deletion injection -hyökkäykset)
+    $check_stmt = $pdo->prepare("SELECT id FROM appointments WHERE id = ?");
     $check_stmt->execute([$id]);
     
     if (!$check_stmt->fetch()) {
-        header("Location: admin_dashboard.php?error=time_not_found");
+        header("Location: admin_dashboard.php?error=appointment_not_found");
         exit;
     }
     
-    // 5. POISTETAAN VAPAA AIKA
-    $stmt = $pdo->prepare("DELETE FROM available_times WHERE id = ?");
+    // 5. POISTETAAN VARAUS
+    $stmt = $pdo->prepare("DELETE FROM appointments WHERE id = ?");
     $stmt->execute([$id]);
     
     // 6. REGENEROIDAAN CSRF TOKEN
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     
     // 7. PALATAAN DASHBOARDILLE
-    header("Location: admin_dashboard.php?success=time_deleted");
+    header("Location: admin_dashboard.php?success=appointment_deleted");
     exit;
     
 } catch (PDOException $e) {
     // Lokitetaan virhe turvallisesti
-    error_log("Delete time error: " . $e->getMessage());
+    error_log("Delete appointment error: " . $e->getMessage());
     header("Location: admin_dashboard.php?error=database_error");
     exit;
 }
