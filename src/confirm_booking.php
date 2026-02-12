@@ -1,30 +1,30 @@
 <?php
 /**
  * CONFIRM_BOOKING.PHP
- * Tämä sivu kerää asiakkaan yhteystiedot ja valmistelee varauksen tallennuksen.
+ * Kerää asiakkaan tiedot ja valmistelee datan tallennusta varten.
  */
 
-// 1. BACKEND (Tomi): Alusta istunto ja sisällytä tietokantayhteys
 session_start();
-// include('db_config.php'); 
+// Tomi: Aktivoi tämä, kun haluat hakea esim. palvelun hinnan tietokannasta
+// require_once 'db_config.php'; 
 
-// 2. BACKEND (Tomi): Tarkistetaan, että tiedot on lähetetty booking.php-sivulta
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Otetaan tiedot talteen piilokentistä
+    // Otetaan tiedot talteen booking.php-sivun piilokentistä
     $selected_date = $_POST['selected_date'] ?? null;
     $selected_time = $_POST['selected_time'] ?? null;
     
-    // Jos tiedot puuttuvat, ohjataan käyttäjä takaisin alkuun
+    // Jesse: Jos haluatte tukea useita eri hoitoja, ID voidaan välittää tässä
+    $treatment_id  = $_POST['treatment_id'] ?? 1; 
+
+    // Jos tiedot puuttuvat, ohjataan takaisin kalenteriin
     if (!$selected_date || !$selected_time) {
         header("Location: booking.php?error=missing_selection");
         exit;
     }
 
-    // 3. BACKEND: Muotoillaan päivämäärä siistiksi
-    // strtotime muuttaa merkkijonon aikaleimaksi, date muotoilee sen
+    // Muotoillaan näyttöä varten (esim. 2026-02-12 -> 12.02.2026)
     $formatted_display_date = date("d.m.Y", strtotime($selected_date));
 } else {
-    // Jos sivulle yritetään tulla suoralla URL-osoitteella, palautetaan varauksen alkuun
     header("Location: booking.php");
     exit;
 }
@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <button type="button" class="back-btn" onclick="history.back()">← MUOKKAA AIKAA</button>
         
         <div class="profile-logo">
-            <img src="logo.png" alt="Artisan Massage Logo">
+            <img src="logo.jpg" alt="Artisan Massage Logo">
         </div>
 
         <div class="service-details">
@@ -67,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 <div class="summary-item">
                     <span>Kellonaika:</span>
-                    <strong>klo <?php echo $selected_time; ?></strong>
+                    <strong>klo <?php echo date("H:i", strtotime($selected_time)); ?></strong>
                 </div>
             </div>
             
@@ -81,17 +81,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="booking-main">
         <header class="main-header">
             <h1>Viimeistele varaus</h1>
-            <p>Täytä vielä yhteystietosi. Lähetämme varausvahvistuksen ilmoittamaasi sähköpostiin.</p>
+            <p>Täytä vielä yhteystietosi. Varauksen jälkeen järjestelmä huomioi 30 minuutin tauon ennen seuraavaa vapaata aikaa.</p>
         </header>
 
         <form action="save_appointment.php" method="POST" class="confirmation-form">
             
             <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
             <input type="hidden" name="time" value="<?php echo $selected_time; ?>">
-            <input type="hidden" name="treatment_id" value="1"> <div class="form-grid">
+            <input type="hidden" name="treatment_id" value="<?php echo $treatment_id; ?>">
+
+            <div class="form-grid">
                 <div class="form-group">
-                    <label for="name">Koko nimi *</label>
-                    <input type="text" id="name" name="name" placeholder="Matti Meikäläinen" required>
+                    <label for="first_name">Etunimi *</label>
+                    <input type="text" id="first_name" name="first_name" placeholder="Matti" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name">Sukunimi *</label>
+                    <input type="text" id="last_name" name="last_name" placeholder="Meikäläinen" required>
                 </div>
 
                 <div class="form-group">
@@ -99,21 +106,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <input type="tel" id="phone" name="phone" placeholder="040 123 4567" required>
                 </div>
 
-                <div class="form-group full-width">
+                <div class="form-group">
                     <label for="email">Sähköposti *</label>
-                    <input type="email" id="email" name="email" placeholder="matti.meikalainen@esimerkki.fi" required>
+                    <input type="email" id="email" name="email" placeholder="matti@esimerkki.fi" required>
                 </div>
 
                 <div class="form-group full-width">
                     <label for="notes">Terveiset hierojalle (valinnainen)</label>
-                    <textarea id="notes" name="notes" rows="4" placeholder="Kirjoita tähän, jos sinulla on toiveita tai esimerkiksi allergioita..."></textarea>
+                    <textarea id="notes" name="notes" rows="3" placeholder="Esim. allergiat tai erityistoiveet..."></textarea>
                 </div>
             </div>
 
             <div class="terms-check">
                 <input type="checkbox" id="terms" name="terms" required>
                 <label for="terms">
-                    Hyväksyn varausehdot. Ymmärrän, että peruutus on tehtävä viimeistään 24 tuntia ennen hoidon alkua. Tämän jälkeen veloitus 50% hinnasta.
+                    Hyväksyn varausehdot. Peruutus on tehtävä viimeistään 24h ennen hoidon alkua. 
+                    Tämän jälkeen veloitamme 50% hoidon hinnasta.
+                </label>
+                                <input type="checkbox" id="terms" name="terms" required>
+                <label for="terms">
+                    Hyväksyn, että TH-kehonhuolto kerää ja käsittelee henkilötietojani ajanvarauksen tekemistä varten, sekä mahdollisia yhteydenottoja varten.
+                    Olen tietoinen siitä, että tietojani käsitellään tietosuojalain (GDPR) mukaisesti ja että minulla on oikeus tarkastaa, oikaista ja poistaa tietoni.
                 </label>
             </div>
 
