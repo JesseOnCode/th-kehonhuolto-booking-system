@@ -1,84 +1,82 @@
 <?php
-/**
- * ADD_TIME.PHP
- * Tallentaa yrittäjän asettaman yksittäisen vapaan aloitusaika-slotin tietokantaan.
- * 
- * TIETOTURVAPARANNUKSET:
- * - CSRF token validointi
- * - Input validointi ja sanitointi
- * - Prepared statements
- * - Error logging
- */
+session_start(); 
 
-session_start();
-require_once 'db_config.php';
+// Tuodaan tietokantayhteys ja asetukset db_config.php-tiedostosta
+require_once 'db_config.php'; 
 
-// 1. TURVATARKISTUS: Vain kirjautunut yrittäjä saa lisätä aikoja
+// tarkistetaan, onko ylläpitäjä kirjautunut sisään; jos ei, ohjataan kirjautumissivulle
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) { 
-    header("Location: admin_login.php");
+// lähetetään uudelleenohjausotsikko selaimelle    
+header("Location: admin_login.php"); 
     exit; 
 }
 
-// 2. LOMAKKEEN KÄSITTELY
+// Tarkistetaan onko sivu avattu lomakkeen lähetyksen (POST) kautta
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    
-    // 3. CSRF-SUOJAUS
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        header("Location: admin_dashboard.php?error=invalid_token");
-        exit;
-    }
-    
-    // 4. INPUT VALIDOINTI JA SANITOINTI
-    $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_STRING);
-    $time = filter_input(INPUT_POST, 'time', FILTER_SANITIZE_STRING);
-    $default_t_id = 1;
 
-    // Tarkistetaan että kentät eivät ole tyhjiä
+    // CSRF-suojaus: Tarkistetaan, että lomakkeen token täsmää istunnon tokeniin
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        //ohjataan takaisin virheilmoituksen kanssa
+        header("Location: admin_dashboard.php?error=invalid_token"); 
+        exit;
+    }
+    
+    // puhdistetaan asiakkaan nimi poistamalla HTML-tägit ja turhat välilyönnit
+    $customer_name = trim(strip_tags($_POST['customer_name'] ?? 'Admin-varaus'));
+    // Haetaan päivämäärä lomakkeesta
+    $date = $_POST['date'] ?? '';
+    // Haetaan kellonaika lomakkeesta
+    $time = $_POST['time'] ?? '';
+    // Määritetään oletuspalvelun ID (esim. Klassinen hieronta)
+    $treatment_id = 1; 
+
+    // Tarkistetaan, etteivät päivämäärä tai aika ole tyhjiä
     if (empty($date) || empty($time)) {
-        header("Location: admin_dashboard.php?error=empty_fields");
-        exit;
-    }
-    
-    // 5. PÄIVÄMÄÄRÄN VALIDOINTI
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-        header("Location: admin_dashboard.php?error=invalid_date_format");
-        exit;
-    }
-    
-    // 6. AJAN VALIDOINTI
-    if (!preg_match('/^\d{2}:\d{2}$/', $time)) {
-        header("Location: admin_dashboard.php?error=invalid_time_format");
+        
+        // Ohjataan takaisin, jos kenttiä puuttuu
+        header("Location: admin_dashboard.php?error=empty_fields"); 
         exit;
     }
 
     try {
-        // 7. SQL-TALLENNUS
-        // INSERT IGNORE estää duplikaatit
-        $sql = "INSERT IGNORE INTO available_times (treatment_id, available_date, available_time) 
-                VALUES (:t_id, :date, :time)";
+        // Aloitetaan tietokantatransaktio (tarkistetaan, että koko ketju toimii.)
+        $pdo->beginTransaction();
+
+        // Luodaan SQL-kysely varauksen lisäämiseksi suoraan appointments-tauluun
+        $sql = "INSERT INTO appointments (customer_first_name, customer_last_name, appointment_date, appointment_time, treatment_id, status, notes) 
+                VALUES (:fname, 'Ylläpitäjä', :date, :time, :t_id, 'booked', 'Lisätty manuaalisesti hallinnasta')";
         
+        // Valmistellaan SQL-kysely tietoturvallisesti (Prepared Statement)
         $stmt = $pdo->prepare($sql);
+        // Suoritetaan kysely ja sidotaan muuttujat parametreihin
         $stmt->execute([
-            ':t_id' => $default_t_id, 
-            ':date' => $date, 
-            ':time' => $time . ':00' // Lisätään sekunnit
+            ':fname' => $customer_name,
+            ':date' => $date,
+            ':time' => $time . ':00', 
+            ':t_id' => $treatment_id
         ]);
-        
-        // 8. REGENEROIDAAN CSRF TOKEN
+
+        // Luodaan kysely, joka poistaa mahdollisen vapaan slotin samalta ajalta
+        $stmt_del = $pdo->prepare("DELETE FROM available_times WHERE available_date = ? AND available_time = ?");
+        // suoritetaan poisto, jolla varmistetaan, että sama aika ei jää vapaaksi kalenteriin.
+        $stmt_del->execute([$date, $time . ':00']);
+
+        // Vahvistetaan kaikki transaktion aikana tehdyt muutokset tietokantaan
+        $pdo->commit();
+        // Luodaan uusi CSRF-token seuraavaa pyyntöä varten turvallisuuden parantamiseksi
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        
-        // 9. PALATAAN DASHBOARDILLE
+        // Ohjataan ylläpitäjä takaisin dashboardille onnistumisviestin kera
         header("Location: admin_dashboard.php?success=time_added");
         exit;
         
-    } catch (PDOException $e) {
-        // Lokitetaan virhe turvallisesti
-        error_log("Add time error: " . $e->getMessage());
+        // Napataan mahdolliset tietokantavirheet
+    } catch (PDOException $e) { 
+        // Jos virhe tapahtui transaktion aikana, perutaan kaikki siihen kuuluvat muutokset
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        // Kirjataan virhe palvelimen lokiin tutkintaa varten
+        error_log("Manual booking error: " . $e->getMessage());
+        // Ohjataan takaisin dashboardille tietokantavirheen ilmoituksella
         header("Location: admin_dashboard.php?error=database_error");
         exit;
     }
-} else {
-    // Jos joku yrittää avata tiedoston suoraan selaimessa ilman lomaketta
-    header("Location: admin_dashboard.php");
-    exit;
 }

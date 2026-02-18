@@ -3,24 +3,18 @@
 /**
  * ADMIN_DASHBOARD.PHP
  * Hallintapaneeli yrittäjälle.
- * 
- * TIETOTURVAPARANNUKSET:
- * - CSRF token generointija validointi
- * - Session timeout tarkistus
- * - XSS-suojaus output escapingilla
- * - Korjattu delete_appointment linkki
  */
 
 session_start();
 require_once 'db_config.php';
 
-// 1. TURVATARKISTUS: Vain kirjautuneille yrittäjille
+// TURVATARKISTUS: Vain kirjautuneille yrittäjille
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) { 
     header("Location: admin_login.php"); 
     exit; 
 }
 
-// 2. SESSION TIMEOUT TARKISTUS (30 minuuttia)
+// SESSION TIMEOUT TARKISTUS (30 minuuttia)
 $timeout_duration = 1800; // 30 minuuttia
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
     session_unset();
@@ -35,7 +29,7 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// 4. DATAN HAKU
+// DATAN HAKU
 try {
     // Haetaan varsinaiset asiakasvaraukset
     $stmt = $pdo->query("SELECT a.*, t.name as treatment_name, t.duration 
@@ -44,7 +38,7 @@ try {
                          ORDER BY a.appointment_date ASC, a.appointment_time ASC");
     $appointments = $stmt->fetchAll();
 
-    // Haetaan vapaat slotit
+    // haetaan vapaat ajat
     $stmt_free = $pdo->query("SELECT v.* FROM available_times v
                               ORDER BY v.available_date ASC, v.available_time ASC");
     $free_times = $stmt_free->fetchAll();
@@ -54,10 +48,6 @@ try {
     die("Tietokantavirhe. Ota yhteyttä ylläpitoon.");
 }
 
-// 5. XSS-SUOJAUS FUNKTIO
-function safe_output($text) {
-    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-}
 ?>
 
 <!DOCTYPE html>
@@ -67,7 +57,14 @@ function safe_output($text) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hallintapaneeli | Artisan Massage</title>
     <link rel="stylesheet" href="css/style.css">
-    <!-- Content Security Policy -->
+    <!-- CSP sisällön turvakäytäntö. 
+        -default-src 'self': Tämä on oletusasetus. Se sanoo selaimelle: "Lataa kuvat, fontit ja muu sisältö vain tältä samalta palvelimelta.
+        
+        style-src 'self' 'unsafe-inline': Salli CSS-tiedostot omalta palvelimelta.
+        
+        -script-src 'self' 'unsafe-inline':
+            -self': Salli JavaScript-tiedostot omalta palvelimelta.
+            -'unsafe-inline': Salli JavaScript-koodi, joka on kirjoitettu suoraan <script>-tagien sisälle tai HTML-elementteihin (esim. onclick="..."). -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
 </head>
 <body>
@@ -77,9 +74,9 @@ function safe_output($text) {
         <div class="profile-logo"><img src="logo.jpg" alt="Logo"></div>
         <h3 style="text-align: center;">Hallinta</h3>
         <nav style="margin-top: 20px;">
-            <a href="#tyoajat" style="color: var(--gold); text-decoration: none; display: block; padding: 10px 0;">⏰ Työaikojen hallinta</a>
-            <a href="#vapaat_lista" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">🗓️ Vapaat slotit</a>
-            <a href="#varaukset" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">📅 Varauskirja</a>
+            <a href="#tyoajat" style="color: var(--gold); text-decoration: none; display: block; padding: 10px 0;">Työaikojen hallinta</a>
+            <a href="#vapaat_lista" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">Vapaat ajat</a>
+            <a href="#varaukset" style="color: var(--text-light); text-decoration: none; display: block; padding: 10px 0;">Varauskirja</a>
             <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
             <a href="logout.php" class="back-btn" style="text-decoration: none; font-size: 14px; display: block;">KIRJAUDU ULOS</a>
         </nav>
@@ -87,7 +84,7 @@ function safe_output($text) {
 
     <div class="booking-main">
         
-        <!-- SUCCESS/ERROR VIESTIT -->
+        <!-- onnistumis / virheviestit -->
         <?php if (isset($_GET['success'])): ?>
             <div style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
                 <?php 
@@ -112,12 +109,12 @@ function safe_output($text) {
         <section id="tyoajat" style="margin-bottom: 50px;">
             <header class="main-header">
                 <h1>Työaikojen hallinta</h1>
-                <p>Määritä vapaat aikasi. Kun asiakas tekee varauksen, kyseiset slotit poistuvat automaattisesti listalta.</p>
+                <p>Määritä vapaat aikasi. Kun asiakas tekee varauksen, kyseiset ajat poistuvat automaattisesti listalta.</p>
             </header>
 
             <div class="selection-grid">
                 <div class="calendar-card" style="padding: 25px; border: 1px solid var(--border);">
-                    <h3 style="color: var(--gold); margin-top: 0;">Generoi työvuoro</h3>
+                    <h3 style="color: var(--gold); margin-top: 0;">Lisää vapaita aikoja varauskalenteriin</h3>
                     <form action="add_time_range.php" method="POST">
                         <input type="hidden" name="csrf_token" value="<?php echo safe_output($_SESSION['csrf_token']); ?>">
                         <div class="form-group">
@@ -143,9 +140,13 @@ function safe_output($text) {
                 </div>
 
                 <div class="calendar-card" style="padding: 25px; border: 1px solid var(--border);">
-                    <h3 style="color: var(--gold); margin-top: 0;">Lisää yksittäinen aika</h3>
+                    <h3 style="color: var(--gold); margin-top: 0;">Lisää varaus suoraan varauskirjaan</h3>
                     <form action="add_time.php" method="POST">
                         <input type="hidden" name="csrf_token" value="<?php echo safe_output($_SESSION['csrf_token']); ?>">
+                        <div class="form-group">
+                            <label>Asiakkaan nimi</label>
+                            <input type="text" name="customer_name" placeholder="Matti Meikäläinen" required>
+                        </div>
                         <div class="form-group">
                             <label>Päivämäärä</label>
                             <input type="date" name="date" required min="<?php echo date('Y-m-d'); ?>">
@@ -154,14 +155,13 @@ function safe_output($text) {
                             <label>Kellonaika</label>
                             <input type="time" name="time" required>
                         </div>
-                        <button type="submit" class="confirm-btn" style="background: transparent; border: 1px solid var(--gold); color: var(--gold);">LISÄÄ SLOTTI</button>
+                        <button type="submit" class="confirm-btn" style="background: var(--gold); color: black;">LISÄÄ VARAUSKIRJAAN</button>
                     </form>
                 </div>
-            </div>
         </section>
 
         <section id="vapaat_lista" style="margin-bottom: 50px;">
-            <h3>Kalenterissa olevat vapaat slotit</h3>
+            <h3>Kalenterissa olevat vapaat ajat</h3>
             <div class="calendar-card" style="padding: 20px; border: 1px solid var(--border);">
                 <?php if (empty($free_times)): ?>
                     <p style="color: var(--muted);">Ei asetettuja vapaita aikoja.</p>

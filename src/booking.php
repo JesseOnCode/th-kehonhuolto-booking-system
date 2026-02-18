@@ -97,7 +97,6 @@
 <script>
     /**
      * JAVASCRIPT-LOGIIKKA
-     * KORJATTU: Lähettää treatment_id:n AJAX-kutsussa
      */
 
     let currentViewDate = new Date(2026, 1, 1); 
@@ -218,12 +217,18 @@
                     btn.className = "time-slot";
                     btn.innerText = time;
                     
-                    btn.onclick = () => {
-                        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
-                        btn.classList.add('active');
-                        timeInput.value = time + ':00'; // Lisätään sekunnit
-                        submitBtn.disabled = false;
-                    };
+                btn.onclick = () => {
+                    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // Jos time on "10:00", tästä tulee "10:00:00", mikä on oikein SQL TIME -kentälle
+                    let formattedTime = btn.innerText;
+                    if (formattedTime.length === 5) {
+                        formattedTime += ':00';
+                    }
+                    timeInput.value = formattedTime;
+                    submitBtn.disabled = false;
+                };
                     container.appendChild(btn);
                 });
             })

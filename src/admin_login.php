@@ -2,14 +2,6 @@
 /**
  * ADMIN_LOGIN.PHP
  * Yrittäjän sisäänkirjautuminen käyttäjätunnuksella.
- * 
- * TIETOTURVAPARANNUKSET (OWASP):
- * - Session fixation prevention
- * - Brute force protection (rate limiting)
- * - Password timing attack prevention
- * - Secure headers
- * - Input validation
- * - CSRF protection for login form
  */
 
 // Secure headers
@@ -21,34 +13,36 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 session_start();
 require_once 'db_config.php';
 
-// 1. Jos yrittäjä on jo kirjautunut, ohjataan dashboardille
+// Jos yrittäjä on jo kirjautunut, ohjataan dashboardille
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
     header("Location: admin_dashboard.php");
     exit;
 }
 
-// 2. CSRF TOKEN GENEROINTI LOMAKKEELLE
+// 2. CSRF TOKEN GENEROINTI LOMAKKEELLE (varmistaa, että lomakkeen lähettäjä on todella käyttäjä itse eikä ulkopuolinen sivusto.)
 if (!isset($_SESSION['login_csrf_token'])) {
     $_SESSION['login_csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $error = "";
 
-// 3. BRUTE FORCE PROTECTION - Rate limiting
+// 3. BRUTE FORCE PROTECTION - kirjautumisen suojaus
 function check_rate_limit() {
+    //ensimmäinen yritys
     if (!isset($_SESSION['login_attempts'])) {
         $_SESSION['login_attempts'] = 0;
         $_SESSION['last_login_attempt'] = time();
     }
     
-    // Reset counter after 15 minutes
+    // tarkistetaan, onko edellisen salasanan syöttöyrityksestä kulunut 15min
     if (time() - $_SESSION['last_login_attempt'] > 900) {
         $_SESSION['login_attempts'] = 0;
     }
     
+    // ajan päivitys
     $_SESSION['last_login_attempt'] = time();
     
-    // Max 5 attempts per 15 minutes
+    // max 5 yritystä 15 minuutin sisään
     if ($_SESSION['login_attempts'] >= 5) {
         return false;
     }
@@ -56,7 +50,7 @@ function check_rate_limit() {
     return true;
 }
 
-// 4. KÄSITELLÄÄN KIRJAUTUMINEN
+// käsitellään kirjautuminen
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     // CSRF-suojaus
@@ -68,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Liian monta kirjautumisyritystä. Odota 15 minuuttia.";
     }
     else {
-        // Input validation
+        // tarkistetaan käyttäjänimen ja salasanan syöte
         $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
         $password = $_POST['password'] ?? '';
         
@@ -78,7 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $error = "Täytä molemmat kentät.";
             $_SESSION['login_attempts']++;
         } 
-        // Username format validation
+        // tarkistetaan vielä käyttäjänimi
         elseif (!preg_match('/^[a-zA-Z0-9_]{3,50}$/', $username)) {
             $error = "Virheellinen käyttäjätunnus.";
             $_SESSION['login_attempts']++;
