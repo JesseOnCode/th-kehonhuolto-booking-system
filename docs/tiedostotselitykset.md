@@ -1,16 +1,17 @@
-Hieronta-varausjärjestelmän tiedostokuvaus:
+# Hieronta-varausjärjestelmän tiedostojen kuvaus.
 
-Tämä dokumentti selittää järjestelmän PHP-tiedostojen käyttötarkoitukset ja niiden väliset suhteet.
+## Tämä dokumentti selittää järjestelmän PHP-tiedostojen käyttötarkoitukset ja niiden väliset suhteet.
 
-Järjestelmän ydin
-db_config.php: Järjestelmän keskeisin tiedosto, joka muodostaa PDO-yhteyden tietokantaan. Se sisältää myös tärkeitä apufunktioita, kuten safe_output()-funktion  XSS-suojausta varten, tällä estetään haitallisen JavaScript-koodin syöttäminen järjestelmään.
+## Järjestelmän ydin
+- db_config.php: Järjestelmän keskeisin tiedosto, joka muodostaa PDO-yhteyden tietokantaan. 
+- Se sisältää myös tärkeitä apufunktioita, kuten safe_output()-funktion  XSS-suojausta varten, tällä estetään haitallisen JavaScript-koodin syöttäminen järjestelmään.
 
-config.php: Yleisiä asetuksia ja konfiguraatioita sisältävä tiedosto.
 
-Asiakaspuolen varaustoiminnot
-Asiakkaan varausprosessi etenee seuraavassa järjestyksessä:
+## Asiakaspuolen varaustoiminnot
+# Asiakkaan varausprosessi etenee seuraavassa järjestyksessä:
 
-booking.php: Varauskalenterin käyttöliittymä, jossa asiakas valitsee hoidon ja päivämäärän. Se käyttää JavaScriptiä dynaamiseen ajan hakuun.
+## booking.php: 
+- Varauskalenterin käyttöliittymä, jossa asiakas valitsee hoidon ja päivämäärän. Se käyttää JavaScriptiä dynaamiseen ajan hakuun.
 
 get_available_times.php: AJAX-taustatiedosto, joka hakee tietokannasta valitun päivän vapaat ajat huomioiden hoidon keston ja tauot.
 
