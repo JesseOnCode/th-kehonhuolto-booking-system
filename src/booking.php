@@ -7,6 +7,7 @@
     
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';">
 </head>
 <body>
@@ -95,13 +96,11 @@
 </form>
 
 <script>
-    /**
-     * JAVASCRIPT-LOGIIKKA
-     * KORJATTU: Lähettää treatment_id:n AJAX-kutsussa
-     */
 
+    // Asetetaan kalenterin alkunäkymä helmikuuhun 2026
     let currentViewDate = new Date(2026, 1, 1); 
     
+    // Haetaan usein tarvittavat HTML-elementit muuttujiin
     const dateInput = document.getElementById('selectedDateInput');
     const timeInput = document.getElementById('selectedTimeInput');
     const treatmentInput = document.getElementById('treatmentIdInput');
@@ -110,24 +109,25 @@
     const serviceSelect = document.getElementById('serviceSelect');
 
     /**
-     * PALVELUN VAIHTO: Päivittää sivupalkin ja hinnan
+     * PALVELUN VAIHTO: Päivittää sivupalkin tiedot ja hakee ajat uudelleen
+     * (Eri hoidot voivat vaatia eri määrän vapaita slotteja)
      */
     serviceSelect.addEventListener('change', function() {
         const selected = this.options[this.selectedIndex];
+        // Päivitetään näkyvät tekstit valinnan mukaan
         document.getElementById('summaryService').innerText = selected.dataset.name;
         document.getElementById('summaryDuration').innerText = "Kesto: " + selected.dataset.duration + " min";
         document.getElementById('summaryPrice').innerText = selected.dataset.price.replace('.', ',') + " €";
+        // Päivitetään piilokenttä palvelun ID:llä
         treatmentInput.value = this.value;
         
-        // TÄRKEÄ: Jos päivä oli jo valittu, haetaan ajat uudelleen uudelle kestolla
+        // Jos päivä oli jo valittu, haetaan vapaat ajat uudelleen uuden hoidon kestolla
         if (dateInput.value) {
             loadAvailableTimes(dateInput.value);
         }
     });
 
-    /**
-     * RENDERÖI KALENTERI
-     */
+    /** Rakentaa kuukauden päivät taulukkoon */
     function renderCalendar() {
         const year = currentViewDate.getFullYear();
         const month = currentViewDate.getMonth();
@@ -136,30 +136,38 @@
         
         document.getElementById('monthDisplay').innerText = `${monthNames[month]} ${year}`;
         
+        // Selvitetään kuukauden ensimmäinen päivä ja päivien määrä
         const firstDay = new Date(year, month, 1).getDay(); 
         const daysInMonth = new Date(year, month + 1, 0).getDate(); 
         const calendarBody = document.getElementById('calendarBody');
-        calendarBody.innerHTML = ''; 
+        calendarBody.innerHTML = ''; // Tyhjennetään vanha kalenteri
 
         let date = 1;
+        // Säädetään viikonpäivän aloitus (JS:ssä 0=su, suomessa 0=ma)
         let startingDay = firstDay === 0 ? 6 : firstDay - 1; 
 
+        // Luodaan kalenterin rivit (max 6 riviä)
         for (let i = 0; i < 6; i++) {
             let row = document.createElement('tr');
             for (let j = 0; j < 7; j++) {
                 let cell = document.createElement('td');
+                // Tyhjät solut ennen kuukauden alkua
                 if (i === 0 && j < startingDay) {
                     cell.innerText = "";
                     cell.classList.add('disabled');
                 } else if (date > daysInMonth) {
+                    // Lopetetaan, kun kuukauden päivät loppuvat
                     break;
                 } else {
                     cell.innerText = date;
+                    // Muotoillaan päivämäärä SQL-muotoon YYYY-MM-DD
                     const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
                     cell.setAttribute('data-date', fullDate);
                     
+                    // Merkitään valittu päivä, jos se on jo valittuna
                     if (dateInput.value === fullDate) cell.classList.add('selected');
 
+                    // Klikkaustapahtuma päivän valitsemiselle
                     cell.addEventListener('click', () => selectDate(cell, fullDate));
                     date++;
                 }
@@ -170,66 +178,68 @@
         }
     }
 
-    /**
-     * VALITSE PÄIVÄ
-     */
+    /* valitaan päivä, Korostaa valitun päivän ja käynnistää aikojen haun */
     function selectDate(element, dateStr) {
+        // Poistetaan aiempi valinta-luokka kaikista soluista
         document.querySelectorAll('.calendar-table td.selected').forEach(el => el.classList.remove('selected'));
-        element.classList.add('selected');
+        element.classList.add('selected'); // Lisätään valinta nykyiseen
         
-        dateInput.value = dateStr;
+        dateInput.value = dateStr; // Tallennetaan valittu päivä piilokenttään
 
+        // Muotoillaan päivämäärä suomeksi otsikkoon
         const dateObj = new Date(dateStr);
         const options = { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' };
         let formatted = dateObj.toLocaleDateString('fi-FI', options);
         displayDate.innerText = formatted.charAt(0).toUpperCase() + formatted.slice(1);
 
+        // Nollataan aiemmin mahdollisesti valittu kellonaika
         timeInput.value = "";
         submitBtn.disabled = true;
 
+        // Haetaan kyseisen päivän vapaat ajat tietokannasta
         loadAvailableTimes(dateStr);
     }
 
-    /**
-     * AJAX: NOUDA VAPAAT AJAT
-     * KORJATTU: Lähetetään treatment_id parametrina
-     */
+    /* Nouda vapaat ajat palvelimelta (get_available_times.php) */
     function loadAvailableTimes(dateStr) {
         const container = document.getElementById('timeSlotContainer');
         container.innerHTML = '<p class="info-text">Haetaan vapaita aikoja...</p>';
 
-        // TÄRKEÄ: Lisätään treatment_id URL-parametriin
         const treatmentId = treatmentInput.value;
+        // Tehdään GET-pyyntö ja lähetetään päivämäärä sekä hoidon ID
         const url = 'get_available_times.php?date=' + encodeURIComponent(dateStr) + '&treatment_id=' + encodeURIComponent(treatmentId);
 
         fetch(url)
-            .then(response => response.json())
+            .then(response => response.json()) // Oletetaan että vastaus on JSON-muotoinen lista
             .then(times => {
                 container.innerHTML = ''; 
 
+                // Jos aikoja ei ole, näytetään ilmoitus
                 if (times.length === 0) {
                     container.innerHTML = '<p class="info-text">Ei vapaita aikoja valittuna päivänä tälle hoidolle.</p>';
                     return;
                 }
 
+                // Luodaan jokaiselle vapaalle ajalle oma nappi
                 times.forEach(time => {
                     const btn = document.createElement('button');
                     btn.type = "button";
                     btn.className = "time-slot";
                     btn.innerText = time;
                     
-                btn.onclick = () => {
-                    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
-                    btn.classList.add('active');
-                    
-                    // Jos time on "10:00", tästä tulee "10:00:00", mikä on oikein SQL TIME -kentälle
-                    let formattedTime = btn.innerText;
-                    if (formattedTime.length === 5) {
-                        formattedTime += ':00';
-                    }
-                    timeInput.value = formattedTime;
-                    submitBtn.disabled = false;
-                };
+                    // Napin klikkaus valitsee kellonajan
+                    btn.onclick = () => {
+                        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
+                        btn.classList.add('active'); // Visuaalinen korostus
+                        
+                        // Muotoillaan aika SQL TIME -muotoon (HH:MM:SS)
+                        let formattedTime = btn.innerText;
+                        if (formattedTime.length === 5) {
+                            formattedTime += ':00';
+                        }
+                        timeInput.value = formattedTime; // Tallennetaan piilokenttään
+                        submitBtn.disabled = false; // Aktivoitetaan "Jatka" -nappi
+                    };
                     container.appendChild(btn);
                 });
             })
@@ -239,7 +249,7 @@
             });
     }
 
-    // NUOLINAVIGOINTI
+    // nuolinavigointi, vaihdetaan kuukautta ja piirretään kalenteri uudelleen
     document.getElementById('prevMonth').onclick = () => { 
         currentViewDate.setMonth(currentViewDate.getMonth() - 1); 
         renderCalendar(); 
@@ -249,6 +259,7 @@
         renderCalendar(); 
     };
 
+    // Aloitetaan piirtämällä kalenteri ensimmäisen kerran
     renderCalendar();
 </script>
 
